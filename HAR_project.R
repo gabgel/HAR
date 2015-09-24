@@ -1,3 +1,6 @@
+#librery
+library(caret)
+
 #Dowload data
 setwd("/home/gab/Documents/DataAnalysis/DataScience/machineLearning")
 urlTr<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
@@ -26,6 +29,7 @@ trainNum<-numData(train)
 trainY<-train$classe
 testNum<-numData(test)
 
+
 #pre process variables
 preObj<-preProcess(trainNum, method=c("knnImpute","center","scale"))
 trainNumProc<-predict(preObj,trainNum)
@@ -37,10 +41,22 @@ sum(nzv$nzv) #there is no variable with near zero variance
 testLast<-predict(preObj, testNum)
 
 #cross validation - slice the dataset in sub train and sub test
-library(caret)
 inTrain<-createDataPartition(y = trainY,p = 0.6,list=F)
 subTrain<-trainNumProc[inTrain,]
+subTrainY<-trainY[inTrain]
 subTest<-trainNumProc[-inTrain,]
+subTestY<-trainY[-inTrain]
 
+#train model with trees
+library(rattle)
+modFit<-train(subTrainY~., method="rpart", data=subTrain)
+print(modFit$finalModel)
+plot(modFit$finalModel, uniform=T, main="Classification Tree")
+text(modFit$finalModel, use.n=T, all=T, cex=.8)
 
+confusionMatrix(predict(modFit, newdata = subTest),subTestY) #poor classification
+
+#train model random forest
+modFit2<-randomForest(subTrainY~., data=subTrain,mtry=dim(subTrain)[2],importance=TRUE)
+confusionMatrix(predict(modFit2, newdata = subTest),subTestY)
 
