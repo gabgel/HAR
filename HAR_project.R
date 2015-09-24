@@ -73,4 +73,3 @@ answers=as.character(predict(modFit2,newdata=testing))
 setwd(dir = "./projectAnswers/")
 pml_write_files(answers)
 
-
