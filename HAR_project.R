@@ -48,7 +48,6 @@ subTest<-trainNumProc[-inTrain,]
 subTestY<-trainY[-inTrain]
 
 #train model with trees
-library(rattle)
 modFit<-train(subTrainY~., method="rpart", data=subTrain)
 print(modFit$finalModel)
 plot(modFit$finalModel, uniform=T, main="Classification Tree")
@@ -58,5 +57,20 @@ confusionMatrix(predict(modFit, newdata = subTest),subTestY) #poor classificatio
 
 #train model random forest
 modFit2<-randomForest(subTrainY~., data=subTrain,mtry=dim(subTrain)[2],importance=TRUE)
-confusionMatrix(predict(modFit2, newdata = subTest),subTestY)
+confusionMatrix(predict(modFit2, newdata = subTest),subTestY) #99% accuracy
+
+#function to write files
+pml_write_files = function(x){
+    n = length(x)
+    for(i in 1:n){
+        filename = paste0("problem_id_",i,".txt")
+        write.table(x[i],file=filename,quote=FALSE,row.names=FALSE,col.names=FALSE)
+    }
+}
+
+#make prediction with model
+answers=as.character(predict(modFit2,newdata=testing))
+setwd(dir = "./projectAnswers/")
+pml_write_files(answers)
+
 
