@@ -1,0 +1,95 @@
+---
+title: "Human Activity Recognition"
+output: html_document
+---
+
+###Gabriele Gelsomini 
+
+###Background
+Using devices such as Jawbone Up, Nike FuelBand, and Fitbit it is now possible to collect a large amount of data about personal activity relatively inexpensively. These type of devices are part of the quantified self movement – a group of enthusiasts who take measurements about themselves regularly to improve their health, to find patterns in their behavior, or because they are tech geeks. One thing that people regularly do is quantify how much of a particular activity they do, but they rarely quantify how well they do it. 
+
+###Executive Summary
+The aim of the analysis is to build a model to predict tha manner in which the person did the exercise, using the data that have been collected through accelerometers on the belt, forearm, arm, and dumbell. After having checked for a poor level of accuracy 49% and even a lower level of agreement (kappa 33%) of the classification tree method 'rpart', I've decided to use random forest that led to a higher accuracy 99.5% and agreement (kappa 99.2%).
+
+###Preparation and dataset manipulation
+
+```{r libraryCharge, include=FALSE}
+library(caret); library(randomForest); set.seed(1234)
+```
+
+```{r downloads, include=FALSE}
+urlTr<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
+urlTs<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-testing.csv"
+download.file(url = urlTr, destfile = "./training.csv", method = "curl")
+download.file(urlTs,destfile = "./test.csv", method="curl")
+```
+
+I've imported the datas into R setting as NA problematic strigs (NA, DIV/0! or empty values) after a previous overview of the datasets.
+
+```{r read}
+#read files into R, using na.string after a previous overview of the dataset
+training<-read.csv(file = "./training.csv",na.strings=c("NA","#DIV/0!",""))
+testing<-read.csv("./test.csv",na.strings=c("NA","#DIV/0!",""))
+```
+
+Since the dataset is composed by a number of variables with NA's values I decide to put a threshold at 30% for the acceptable NA's values within each varialble. Moreover since the prediction has to be focussed on the quantitative variables, I get rid of the first 7 variables. 
+
+```{r clean}
+RatioNA=function(x) sum(is.na(x))/length(x)
+PercNA<-apply(X = training, 2, FUN = RatioNA)
+train<-training[,-which(PercNA>0.3)]
+#eliminate first 7 covariate
+numData=function(x) x[,-c(1:7)] 
+trainNum<-numData(train)
+```
+
+Now I check about possible redoundant variables looking near zero variance, but there is no redoundance on variables.
+
+```{r nzv}
+l<-dim(trainNum)[2]
+nzv<-nearZeroVar(trainNum[,-l],saveMetrics = T)
+sum(nzv$nzv) #there is no variable with near zero variance
+```
+
+###Cross Validation
+
+Our training dataset is quite big with 19622 observations, so we can easily slice the training dataset in 2 sub groups to be able to train our model and   
+give a figure of the possible out of sample error with a subtest dataset. This would help in prevent possible overfitting problems. I decide to use 60% of the dataset to train the model and 40% to validate it.
+
+```{r split}
+inTrain<-createDataPartition(y = trainNum$classe,p = 0.6,list=F)
+subTrain<-trainNum[inTrain,]
+subTest<-trainNum[-inTrain,]
+```
+
+###Model training
+The first model I trained was a classification tree, due to the computational advantage respect to random forest. I've preprocessed the variables centering, scaling and imputing missing values using k-nearest neighbors method. Than I produced a confusion matrix to cross validate the model lookig at accuracy, kappa and statistic by class for the test set.
+
+
+```{r tree}
+modFitTree<-train(classe~. , data=subTrain, method="rpart",
+                  preProcess=c("knnImpute","center","scale"))
+confusionMatrix(predict(modFitTree, newdata = subTest),subTest$classe)
+```
+
+The second model I trained was a random forest, trying to improuve prediction performance.
+
+```{r randfor} 
+modFit<-randomForest(classe~. , preProcess=c("knnImpute","center","scale"),
+                     data=subTrain, importance=TRUE)
+print(modFit)
+```
+
+
+###Conclusion
+The classification tree shows a poor level of accuracy (49%) and a low level of agreement kappa (33%). Looking at statistic by class it's interesting to see that even for a poor model the negative predicrìtive values are pretty high, due to the fact that we have a classification problem with 5 levels.
+The random forest shows a small out of bag error rate (0.67%) and classification errors lower than 1% exept for class C and D that are around 1%.
+The confusion matrix (*appendix*) shows very good level of accuracy 99% and agreement (kappa 99%). The final random forest model, seems a good prediction model.
+
+###Appendix
+
+*confusion matrix random forest*
+```{r confmatRf}
+confusionMatrix(predict(modFit, newdata = subTest),subTest$classe) 
+```
+

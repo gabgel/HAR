@@ -1,6 +1,6 @@
 #librery
 library(caret)
-
+set.seed(1234)
 #Dowload data
 setwd("/home/gab/Documents/DataAnalysis/DataScience/machineLearning")
 urlTr<-"https://d396qusza40orc.cloudfront.net/predmachlearn/pml-training.csv"
@@ -14,21 +14,16 @@ testing<-read.csv("./test.csv",na.strings=c("NA","#DIV/0!",""))
 str(training)
 str(testing)
 
-#eliminate variables with many NA's >60
+#eliminate variables with many NA's >30
 RatioNA=function(x) sum(is.na(x))/length(x)
 PercNA<-apply(X = training, 2, FUN = RatioNA)
 train<-training[,-which(PercNA>0.3)]
 
 
-#eliminate first 6 covariate not numeric and the last outcome variable
-numData=function(x) x[,-c(1:6)] 
+#eliminate first 7 covariate not numeric and the last outcome variable
+numData=function(x) x[,-c(1:7)] 
 trainNum<-numData(train)
 
-
-
-#pre process variables
-preObj<-preProcess(trainNum, method=c("knnImpute","center","scale"))
-trainNumProc<-predict(preObj,trainNum)
 
 #check for near zero variance
 l<-dim(trainNum)[2]
@@ -37,14 +32,24 @@ sum(nzv$nzv) #there is no variable with near zero variance
 
 
 #cross validation - slice the dataset in sub train and sub test
-inTrain<-createDataPartition(y = trainY,p = 0.6,list=F)
+inTrain<-createDataPartition(y = trainNum$classe,p = 0.6,list=F)
 subTrain<-trainNum[inTrain,]
 subTest<-trainNum[-inTrain,]
 
+#train classification trees
+modFitTree<-train(classe~. , data=subTrain, method="rpart",
+                  preProcess=c("knnImpute","center","scale"))
+
+confusionMatrix(predict(modFitTree, newdata = subTest),subTest$classe) #poor one
+
+
 #train model random forest
-modFit<-randomForest(classe~., data=subTrain, preProcess=c("knnImpute","center","scale"),importance=TRUE)
+library(randomForest); 
+modFit<-randomForest(classe~. , preProcess=c("knnImpute","center","scale"),
+                     data=subTrain, importance=TRUE)
 
 confusionMatrix(predict(modFit, newdata = subTest),subTest$classe) #99% accuracy
+print(modFit)
 
 #function to write files
 pml_write_files = function(x){
